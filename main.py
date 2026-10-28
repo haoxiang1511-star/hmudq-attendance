@@ -17,7 +17,6 @@ import openpyxl
 from openpyxl.styles import Font
 import flet as ft
 import collections
-import math
 from name_import import parse_names, parse_names_detail, normalize_name, disambiguate
 from telemetry import (
     TELEMETRY_ENABLED,
@@ -231,18 +230,6 @@ DEFAULT_STUDENTS_ORDER = [
 
 # 课节名称
 PERIOD_LABELS = ["1-2节", "3-4节", "5-6节", "7-8节", "9-10节"]
-
-# 1.5.2 界面配色（对齐 render/ui15/mock.css）
-UI_BG = "#f8f9ff"
-UI_BLUE = "#1565c0"
-UI_BLUE_SOFT = "#e3f2fd"
-UI_BLUE_PILL = "#bbdefb"
-UI_LINE = "#e0e0e0"
-UI_INK = "#1a1a1a"
-UI_MUTED = "#757575"
-UI_DANGER = "#e53935"
-UI_OK = "#2e7d32"
-UI_TOP_INSET = 36   # 状态栏留白（原 page.padding.top 挪进各页）
 
 # 可以写入数据库的考勤状态（状态选择器只列这 5 个）
 RECORD_STATUSES = ["出勤", "旷课", "病假", "事假", "空课"]
@@ -2011,7 +1998,7 @@ def card_style(status):
     """返回 (边框, 阴影, 背景色)。"""
     color_hex = STATUS_STYLES.get(status, ("#6b7280", ""))[0]
     if status == "出勤":
-        return ft.Border.all(1, UI_LINE), ft.BoxShadow(blur_radius=2, offset=ft.Offset(0, 1), color="#0a000000"), ft.Colors.WHITE
+        return ft.Border.all(2, ft.Colors.GREY_300), ft.BoxShadow(spread_radius=1, blur_radius=4, color=ft.Colors.BLACK12), ft.Colors.WHITE
     if status == "旷课":
         return ft.Border.all(2, color_hex), ft.BoxShadow(spread_radius=1, blur_radius=8, color="#1fef4444"), "#fef2f2"
     if status == "病假":
@@ -2019,7 +2006,7 @@ def card_style(status):
     if status == "事假":
         return ft.Border.all(2, color_hex), ft.BoxShadow(spread_radius=1, blur_radius=8, color="#1fd97706"), "#fefce8"
     # 空课 / 未入班
-    return ft.Border.all(1, UI_LINE), ft.BoxShadow(blur_radius=2, offset=ft.Offset(0, 1), color="#0a000000"), ft.Colors.WHITE
+    return ft.Border.all(2, ft.Colors.GREY_200), None, "#f9fafb"
 
 
 RESCUE_DIR_NAME = "rescue_export"
@@ -2439,29 +2426,12 @@ def show_startup_error(page, ex):
 
 def main(page: ft.Page):
     page.title = "点名助手"
-    page.theme = ft.Theme(
-        font_family="Microsoft YaHei, PingFang SC, Segoe UI, sans-serif",
-        # 1.5.2：拖动排序时 Flutter 默认给被拖行包一层「画布色 Material + 阴影」的方块（Flet 不开放
-        # proxyDecorator），会露出白色直角和方形阴影。把画布色设透明、默认阴影色设透明，这层方块就看不见了，
-        # 只剩我们自己给被拖行加的圆角蓝框+蓝色阴影；弹窗/菜单阴影单独在各自主题里补回。
-        color_scheme=ft.ColorScheme(primary=UI_BLUE, shadow=ft.Colors.TRANSPARENT),
-        canvas_color=ft.Colors.TRANSPARENT,
-        # 1.5.2：所有弹窗统一白底圆角 16（渲染图 07）
-        dialog_theme=ft.DialogTheme(
-            bgcolor=ft.Colors.WHITE,
-            shape=ft.RoundedRectangleBorder(radius=16),
-            title_text_style=ft.TextStyle(size=18, weight=ft.FontWeight.W_800, color=UI_INK),
-            shadow_color=ft.Colors.BLACK54,
-        ),
-        popup_menu_theme=ft.PopupMenuTheme(shadow_color=ft.Colors.BLACK38, color=ft.Colors.WHITE),
-    )
+    page.theme = ft.Theme(font_family="Microsoft YaHei, PingFang SC, Segoe UI, sans-serif")
     page.theme_mode = ft.ThemeMode.LIGHT
     page.window_width = 460
     page.window_height = 820
     page.window_resizable = True
-    # 1.5.2：页面不留外边距，侧栏/遮罩才能贴满全屏；内边距挪到各页内部
-    page.padding = 0
-    page.bgcolor = UI_BG
+    page.padding = ft.Padding(top=45, left=15, right=15, bottom=15)
 
     # 初始化本地数据库（必要时原地升级）；失败时只显示错误页，绝不新建空库
     try:
@@ -2532,7 +2502,7 @@ def main(page: ft.Page):
     except Exception:
         date_display_init = f"{current_date}"
 
-    date_text = ft.Text(date_display_init, color=UI_BLUE, weight=ft.FontWeight.W_600, size=13)
+    date_text = ft.Text(date_display_init, color=ft.Colors.BLUE_800, weight=ft.FontWeight.BOLD, size=15)
 
     # 日期选择器逻辑
     def on_date_change(e):
@@ -2561,43 +2531,49 @@ def main(page: ft.Page):
     )
     page.overlay.append(date_picker)
 
-    # 1.5.2 顶栏浅蓝胶囊（渲染图 01 .chip）：无灰框、无描边
-    def top_chip(controls, on_click=None):
-        return ft.Container(
-            content=ft.Row(controls, spacing=4, tight=True,
-                           vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor=UI_BLUE_SOFT, border_radius=16,
-            padding=ft.Padding.symmetric(horizontal=10, vertical=6),
-            on_click=on_click, ink=on_click is not None,
-        )
+    date_btn = ft.Container(
+        content=ft.Row([
+            ft.Icon(ft.Icons.CALENDAR_MONTH, color=ft.Colors.BLUE_800, size=18),
+            date_text
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=5),
+        on_click=lambda _: page.show_dialog(date_picker),
+        bgcolor=ft.Colors.GREY_100,
+        border=ft.Border.all(1, ft.Colors.GREY_300),
+        border_radius=8,
+        height=45,
+        padding=ft.Padding.symmetric(horizontal=12),
+        alignment=ft.Alignment.CENTER
+    )
 
-    date_btn = top_chip(
-        [ft.Icon(ft.Icons.CALENDAR_TODAY_OUTLINED, color=UI_BLUE, size=14), date_text],
-        on_click=lambda _: page.show_dialog(date_picker))
-
-    # 课节选择：浅蓝胶囊 + 弹出菜单（替代原灰框 Dropdown，逻辑不变）
-    period_text = ft.Text(PERIOD_LABELS[current_period], color=UI_BLUE, weight=ft.FontWeight.W_600, size=13)
-
-    def on_period_change(idx):
+    # 课节选择器下拉框
+    def on_period_change(e):
         nonlocal current_period
-        current_period = int(idx)
-        period_text.value = PERIOD_LABELS[current_period]
-        for j, it in enumerate(period_menu.items):
-            it.checked = (j == current_period)
+        current_period = int(period_dropdown.value)
         load_attendance_from_db()
         rebuild_roster_ui()
         page.update()
 
-    period_menu = ft.PopupMenuButton(
-        content=top_chip([period_text, ft.Icon(ft.Icons.ARROW_DROP_DOWN_ROUNDED, color=UI_BLUE, size=18)]),
-        items=[ft.PopupMenuItem(content=ft.Text(label), checked=(i == current_period),
-                                on_click=lambda _, i=i: on_period_change(i))
-               for i, label in enumerate(PERIOD_LABELS)],
-        menu_position=ft.PopupMenuPosition.UNDER,
-        padding=0,
-        tooltip="选择节次",
-        bgcolor=ft.Colors.WHITE,
-        shape=ft.RoundedRectangleBorder(radius=12),
+    period_dropdown = ft.Dropdown(
+        value=str(current_period),
+        options=[ft.dropdown.Option(str(i), label) for i, label in enumerate(PERIOD_LABELS)],
+        on_select=on_period_change,
+        width=110,
+        height=45,
+        dense=True,
+        border=ft.InputBorder.NONE,
+        color=ft.Colors.BLUE_800,
+        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, size=15),
+        content_padding=ft.Padding(10, 0, 0, 0)
+    )
+
+    dropdown_container = ft.Container(
+        content=period_dropdown,
+        bgcolor=ft.Colors.GREY_100,
+        border=ft.Border.all(1, ft.Colors.GREY_300),
+        border_radius=8,
+        height=45,
+        width=110,
+        alignment=ft.Alignment.CENTER
     )
 
     # 搜索框与状态过滤
@@ -2610,22 +2586,14 @@ def main(page: ft.Page):
     search_input = ft.TextField(
         hint_text="搜索姓名/拼音首字母...",
         on_change=on_search_change,
-        prefix_icon=ft.Icon(ft.Icons.SEARCH, size=18, color=UI_MUTED),
-        height=38,
-        dense=True,
-        text_size=13,
-        hint_style=ft.TextStyle(size=13, color=UI_MUTED),
-        content_padding=ft.Padding(14, 8, 14, 8),
+        prefix_icon=ft.Icons.SEARCH,
+        height=40,
+        content_padding=10,
         expand=True,
-        bgcolor=ft.Colors.WHITE,
-        filled=True,
-        fill_color=ft.Colors.WHITE,
-        border_radius=20,
-        border_color=UI_LINE,
-        focused_border_color=UI_BLUE,
-        color=UI_INK,
-        on_focus=lambda e: set_keyboard_mode(True),
-        on_blur=lambda e: set_keyboard_mode(False),
+        bgcolor=ft.Colors.GREY_100,
+        border_radius=8,
+        border_color=ft.Colors.GREY_300,
+        color=ft.Colors.BLACK
     )
 
     def on_filter_toggle(e):
@@ -2638,17 +2606,13 @@ def main(page: ft.Page):
         label="只看异常",
         value=show_anomaly_only,
         on_change=on_filter_toggle,
-        active_color=ft.Colors.AMBER_600,
-        inactive_track_color="#cfd8dc",
-        inactive_thumb_color=ft.Colors.WHITE,
-        track_outline_color=ft.Colors.TRANSPARENT,
-        label_text_style=ft.TextStyle(size=12, color=UI_MUTED),
+        active_color=ft.Colors.AMBER_600
     )
 
     # 「本节还没点名」提示行
-    slot_hint_text = ft.Text("", size=12, color="#f57f17", weight=ft.FontWeight.W_600)
-    slot_hint = ft.Container(content=slot_hint_text, bgcolor="#fff8e1", border_radius=8,
-                             padding=ft.Padding.symmetric(horizontal=10, vertical=7), visible=False)
+    slot_hint_text = ft.Text("", size=12, color=ft.Colors.AMBER_900)
+    slot_hint = ft.Container(content=slot_hint_text, bgcolor=ft.Colors.AMBER_50, border_radius=8,
+                             padding=ft.Padding.symmetric(horizontal=10, vertical=6), visible=False)
 
     roster_column = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True, spacing=8)
 
@@ -2688,7 +2652,7 @@ def main(page: ft.Page):
         color_hex, bg_color = STATUS_STYLES.get(new_status, ("#6b7280", "#1a6b7280"))
         info["status_text"].value = new_status
         info["status_text"].color = color_hex
-        info["status_badge"].border = ft.Border.all(1, ft.Colors.TRANSPARENT)
+        info["status_badge"].border = ft.Border.all(1, color_hex)
         info["status_badge"].bgcolor = bg_color
         border, shadow, bg = card_style(new_status)
         c = info["container"]
@@ -2796,17 +2760,16 @@ def main(page: ft.Page):
         def build_card(name):
             status = attendance_cache.get(name, "空课")
             color_hex, bg_color = STATUS_STYLES.get(status, ("#6b7280", "#1a6b7280"))
-            status_text = ft.Text(status, size=12, color=color_hex, weight=ft.FontWeight.W_500)
-            status_badge = ft.Container(content=status_text, border=ft.Border.all(1, ft.Colors.TRANSPARENT), border_radius=8,
+            status_text = ft.Text(status, size=11, color=color_hex, weight=ft.FontWeight.BOLD)
+            status_badge = ft.Container(content=status_text, border=ft.Border.all(1, color_hex), border_radius=6,
                                         padding=ft.Padding.symmetric(horizontal=8, vertical=4), bgcolor=bg_color)
             card_row = ft.Row(
-                [ft.Text(name, size=15, weight=ft.FontWeight.W_600, color=UI_INK),
+                [ft.Text(name, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK),
                  ft.GestureDetector(content=status_badge, on_tap=lambda _, n=name: show_status_selector(n))],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
             border, shadow, bg = card_style(status)
             card_container = ft.Container(
-                content=card_row, padding=ft.Padding.symmetric(horizontal=10, vertical=12), border=border,
-                border_radius=12, bgcolor=bg,
+                content=card_row, padding=ft.Padding.all(12), border=border, border_radius=10, bgcolor=bg,
                 on_click=lambda _, n=name: toggle_attendance_fast(n),
                 on_long_press=lambda _, n=name: show_status_selector(n),
                 shadow=shadow)
@@ -2965,37 +2928,12 @@ def main(page: ft.Page):
     # 自定义侧栏（方案 D：半透明遮罩+白面板；不用 page.drawer，避免名单页系统左缘误开）
     drawer_state = {"open": False, "layer": None}
 
-    def _drawer_width():
-        try:
-            w = float(page.width or 0)
-        except Exception:
-            w = 0
-        if w <= 0:
-            w = 412
-        return max(240, min(320, round(w * 0.68)))
-
     def open_drawer(e=None):
         telemetry_note_feature("drawer_open", page)
         drawer_state["open"] = True
         layer = drawer_state.get("layer")
         if layer is not None:
-            panel = drawer_state.get("panel")
-            scrim = drawer_state.get("scrim")
-            if panel is not None:
-                pw = _drawer_width()
-                panel.width = pw + 1          # 左侧 1px 边框推到屏幕外（只留右边线+右圆角）
-                panel.offset = ft.Offset(-1, 0)
-            if scrim is not None:
-                scrim.opacity = 0
             layer.visible = True
-            try:
-                page.update()
-            except Exception:
-                pass
-            if panel is not None:
-                panel.offset = ft.Offset(0, 0)
-            if scrim is not None:
-                scrim.opacity = 1
             try:
                 page.update()
             except Exception:
@@ -3011,38 +2949,6 @@ def main(page: ft.Page):
             except Exception:
                 pass
 
-    # 1.5.2：输入法弹出时不把底栏/FAB 顶上来（Flet 无 resizeToAvoidBottomInset，改为键盘期间隐藏）
-    kb_state = {"on": False}
-
-    def set_keyboard_mode(on):
-        on = bool(on)
-        if kb_state["on"] == on:
-            return
-        kb_state["on"] = on
-        for name in ("frost_nav", "fab_holder"):
-            ctl = kb_refs.get(name)
-            if ctl is not None:
-                ctl.visible = not on
-        try:
-            page.update()
-        except Exception:
-            pass
-
-    kb_refs = {}
-
-    def on_media_change(e):
-        try:
-            insets = getattr(e, "view_insets", None)
-            bottom = float(getattr(insets, "bottom", 0) or 0) if insets is not None else 0
-        except Exception:
-            bottom = 0
-        set_keyboard_mode(bottom > 0)
-
-    try:
-        page.on_media_change = on_media_change
-    except Exception:
-        pass
-
     # 更新小红点：启动缓存/静默检查后亮；已是最新或装上新版后灭；关下载窗不灭
     try:
         _update_badge_init = update_badge_should_show(load_update_cache())
@@ -3054,71 +2960,54 @@ def main(page: ft.Page):
             width=8, height=8, bgcolor=ft.Colors.RED_500, border_radius=8,
             visible=_update_badge_init, right=4, top=4)
 
-    # 1.5.2 顶栏图标：36×36 透明底、图标 22（渲染图 .icon-btn）
-    def top_icon_btn(icon, tooltip, on_click):
-        return ft.IconButton(
-            icon=icon, icon_color=UI_BLUE, icon_size=22, tooltip=tooltip, on_click=on_click,
-            width=36, height=36, padding=0, style=ft.ButtonStyle(padding=0))
-
     menu_update_dot = _make_corner_update_dot()
     menu_btn = ft.Stack(
-        [top_icon_btn(ft.Icons.MENU_ROUNDED, "设置", open_drawer), menu_update_dot],
-        width=36, height=36,
+        [
+            ft.IconButton(
+                icon=ft.Icons.MENU_ROUNDED, icon_color=ft.Colors.BLUE_800, icon_size=24,
+                tooltip="设置", on_click=open_drawer, width=42, height=42),
+            menu_update_dot,
+        ],
+        width=42, height=42,
     )
 
-    copy_btn = top_icon_btn(ft.Icons.CONTENT_COPY_OUTLINED, "复制微信考勤汇总", on_copy_summary)
-    export_btn = top_icon_btn(ft.Icons.FILE_DOWNLOAD_ROUNDED, "导出考勤 Excel", on_export_excel)
+    copy_btn = ft.IconButton(
+        icon=ft.Icons.COPY_ALL_ROUNDED, tooltip="复制微信考勤汇总", on_click=on_copy_summary,
+        icon_color=ft.Colors.BLUE_800, bgcolor=ft.Colors.GREY_100, width=42, height=42)
+    export_btn = ft.IconButton(
+        icon=ft.Icons.FILE_DOWNLOAD_ROUNDED, tooltip="导出考勤 Excel", on_click=on_export_excel,
+        icon_color=ft.Colors.BLUE_800, bgcolor=ft.Colors.GREY_100, width=42, height=42)
 
-    def make_top_bar(left, mid, right, mid_inset=76):
-        """左右各 76px 等宽翼 + 中间绝对居中（不受两侧按钮数量影响）。"""
-        return ft.Container(
-            content=ft.Stack(
-                [
-                    ft.Container(content=mid, left=mid_inset, right=mid_inset, top=0, bottom=0,
-                                 alignment=ft.Alignment.CENTER),
-                    ft.Container(content=ft.Row([left], spacing=0, alignment=ft.MainAxisAlignment.START),
-                                 width=76, left=0, top=0, bottom=0, alignment=ft.Alignment.CENTER_LEFT),
-                    ft.Container(content=ft.Row(right, spacing=4, alignment=ft.MainAxisAlignment.END),
-                                 width=76, right=0, top=0, bottom=0, alignment=ft.Alignment.CENTER_RIGHT),
-                ],
-                height=38,
-            ),
-            padding=ft.Padding(10, 6, 10, 8),
-        )
+    # 点名顶栏：左汉堡 | 中日期+节次居中 | 右复制/导出图标
+    roll_top_bar = ft.Row(
+        [
+            menu_btn,
+            ft.Container(
+                content=ft.Row([date_btn, dropdown_container], spacing=8,
+                               alignment=ft.MainAxisAlignment.CENTER),
+                expand=True, alignment=ft.Alignment.CENTER),
+            ft.Row([copy_btn, export_btn], spacing=4),
+        ],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
 
-    # 点名顶栏：左汉堡 | 中日期+节次绝对居中 | 右复制/导出图标
-    roll_top_bar = make_top_bar(
-        menu_btn,
-        ft.Row([date_btn, period_menu], spacing=6, alignment=ft.MainAxisAlignment.CENTER,
-               vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        [copy_btn, export_btn])
-
-    search_row = ft.Row([search_input, filter_switch], alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER)
-
-    def quick_btn(mark, mark_color, label, on_click):
-        return ft.Container(
-            content=ft.Row(
-                [ft.Text(mark, size=13, weight=ft.FontWeight.W_800, color=mark_color),
-                 ft.Text(label, size=13, weight=ft.FontWeight.W_600, color=UI_INK)],
-                spacing=6, alignment=ft.MainAxisAlignment.CENTER, tight=True),
-            expand=True, bgcolor=ft.Colors.WHITE, border=ft.Border.all(1, UI_LINE), border_radius=12,
-            padding=ft.Padding.symmetric(horizontal=8, vertical=9), alignment=ft.Alignment.CENTER,
-            on_click=on_click, ink=True)
+    search_row = ft.Row([search_input, filter_switch], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=10)
 
     global_buttons = ft.Row(
-        [quick_btn("✓", UI_OK, "全员出勤", on_all_present),
-         quick_btn("zzz", UI_BLUE, "全员空课", on_all_noclass)],
-        spacing=10)
+        [
+            ft.TextButton(content="✓ 全员出勤", on_click=on_all_present,
+                          style=ft.ButtonStyle(color=ft.Colors.GREEN_600)),
+            ft.TextButton(content="💤 全员空课", on_click=on_all_noclass,
+                          style=ft.ButtonStyle(color=ft.Colors.GREY_600)),
+        ],
+        alignment=ft.MainAxisAlignment.START, spacing=20)
 
-    # 点名页顶部可横滑区域（人名网格之外）；不再用分隔线
+    # 点名页顶部可横滑区域（人名网格之外）；虚线教学框不当常驻
     roll_swipe_header = ft.Column(
-        [roll_top_bar,
-         ft.Container(
-             content=ft.Column([search_row, global_buttons, slot_hint], spacing=8, tight=True,
-                               horizontal_alignment=ft.CrossAxisAlignment.STRETCH),
-             padding=ft.Padding(12, 0, 12, 0))],
-        spacing=0, tight=True)
+        [roll_top_bar, ft.Divider(color=ft.Colors.GREY_300, height=5),
+         search_row, global_buttons, slot_hint],
+        spacing=10, tight=True)
 
     # ----------------- 7. 名单管理（自动保存） -----------------
 
@@ -3187,8 +3076,8 @@ def main(page: ft.Page):
 
     def open_add_student_dialog(e=None):
         collapse_fab()
-        name_input = dialog_field(hint_text="输入新成员姓名...")
-        set_keyboard_mode(True)
+        name_input = ft.TextField(hint_text="输入姓名", autofocus=True, height=48,
+                                  border_radius=8, content_padding=10)
 
         def confirm(e2):
             name = normalize_name(name_input.value)
@@ -3245,11 +3134,10 @@ def main(page: ft.Page):
 
         page.show_dialog(ft.AlertDialog(
             title=ft.Text("添加同学"),
-            content=ft.Column([name_input], tight=True, width=300),
-            actions=[dialog_action("取消", lambda _: page.pop_dialog()),
-                     dialog_action("添加", confirm)],
-            actions_alignment=ft.MainAxisAlignment.END,
-            on_dismiss=lambda e: set_keyboard_mode(False)))
+            content=ft.Column([name_input], tight=True, width=280),
+            actions=[ft.TextButton("取消", on_click=lambda _: page.pop_dialog()),
+                     ft.TextButton("添加", on_click=confirm)],
+            actions_alignment=ft.MainAxisAlignment.END))
 
     # ---- 导入 ----
     def apply_imported_names(imported_names, mode):
@@ -3353,73 +3241,15 @@ def main(page: ft.Page):
         editing = [{"id": s["id"], "name": s["name"], "orig": s["name"]} for s in get_class_students()]
         rebuild_manage_list_ui()
 
-    # 1.5.2：长按拖动时震动 + 被拖行变蓝色浮起（渲染图 05 .row.lifted）
-    haptic = ft.HapticFeedback()
-    page.services.append(haptic)
-    lift_state = {"row": None}
-
-    def _row_rest_style(row):
-        row.border = ft.Border.all(1, UI_LINE)
-        row.shadow = ft.BoxShadow(blur_radius=2, offset=ft.Offset(0, 1), color="#0a000000")
-        row.scale = 1
-
-    async def on_manage_reorder_start(e):
-        try:
-            await haptic.heavy_impact()
-        except Exception:
-            pass
-        idx = getattr(e, "old_index", None)
-        if idx is None or not (0 <= idx < len(manage_list.controls)):
-            return
-        row = manage_list.controls[idx]
-        lift_state["row"] = row
-        row.border = ft.Border.all(1.5, UI_BLUE)
-        row.shadow = ft.BoxShadow(blur_radius=24, offset=ft.Offset(0, 10), color="#471565c0")
-        row.scale = 1.03
-        try:
-            row.update()
-        except Exception:
-            pass
-
-    def on_manage_reorder_end(e):
-        row = lift_state.get("row")
-        lift_state["row"] = None
-        if row is not None and row in manage_list.controls:
-            _row_rest_style(row)
-            try:
-                row.update()
-            except Exception:
-                pass
-
     manage_list = ft.ReorderableListView(
-        expand=True, spacing=8, show_default_drag_handles=False,
-        padding=ft.Padding(12, 4, 12, 110),
+        expand=True, spacing=6, show_default_drag_handles=False,
+        padding=ft.Padding.only(bottom=96),
         on_reorder=lambda e: on_manage_reorder(e),
-        on_reorder_start=on_manage_reorder_start,
-        on_reorder_end=on_manage_reorder_end,
     )
-
-    # 1.5.2 弹窗输入框与按钮（渲染图 07）
-    def dialog_field(**kw):
-        kw.setdefault("autofocus", True)
-        return ft.TextField(
-            border_radius=10, filled=True, fill_color="#fafafa", bgcolor="#fafafa",
-            border_color=UI_LINE, focused_border_color=UI_BLUE, text_size=15,
-            hint_style=ft.TextStyle(size=15, color="#9e9e9e"),
-            content_padding=ft.Padding(12, 10, 12, 10), color=UI_INK,
-            on_focus=lambda e: set_keyboard_mode(True),
-            on_blur=lambda e: set_keyboard_mode(False),
-            **kw)
-
-    def dialog_action(text, on_click, color=None):
-        return ft.TextButton(
-            content=ft.Text(text, size=15, weight=ft.FontWeight.W_700, color=color or UI_BLUE),
-            on_click=on_click)
 
     def open_rename_dialog(i):
         entry = editing[i]
-        name_input = dialog_field(value=entry["name"])
-        set_keyboard_mode(True)
+        name_input = ft.TextField(value=entry["name"], autofocus=True)
 
         def confirm(e2):
             new = normalize_name(name_input.value)
@@ -3440,14 +3270,13 @@ def main(page: ft.Page):
         page.show_dialog(ft.AlertDialog(
             title=ft.Text("修改姓名"),
             content=ft.Column([
-                ft.Text(f"原名：{entry.get('orig') or entry['name']}", size=13, color=UI_MUTED),
+                ft.Text(f"原名：{entry.get('orig') or entry['name']}", color=ft.Colors.GREY_700),
                 name_input,
-                ft.Text("考勤记录会保留在新名字下", size=12, color=UI_MUTED),
-            ], tight=True, width=300, spacing=10),
-            actions=[dialog_action("取消", lambda _: page.pop_dialog()),
-                     dialog_action("确定", confirm)],
-            actions_alignment=ft.MainAxisAlignment.END,
-            on_dismiss=lambda e: set_keyboard_mode(False)))
+                ft.Text("考勤记录会保留在新名字下", size=12, color=ft.Colors.GREY_600),
+            ], tight=True, width=280),
+            actions=[ft.TextButton("取消", on_click=lambda _: page.pop_dialog()),
+                     ft.TextButton("确定", on_click=confirm)],
+            actions_alignment=ft.MainAxisAlignment.END))
 
     def confirm_remove_student(i):
         entry = editing[i]
@@ -3541,34 +3370,26 @@ def main(page: ft.Page):
                 label += f"（原：{entry['orig']}）"
             if entry.get("from_class"):
                 label += f"（从{entry['from_class']}移入）"
-            row = ft.Container(
+            rows.append(ft.Container(
                 content=ft.Row(
                     [
-                        ft.Text(label, size=16, weight=ft.FontWeight.W_600, color=UI_INK, expand=True),
-                        ft.IconButton(icon=ft.Icons.EDIT, icon_size=20, icon_color=UI_BLUE,
-                                      width=34, height=34, padding=0, style=ft.ButtonStyle(padding=0),
+                        ft.Text(label, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLACK, expand=True),
+                        ft.IconButton(icon=ft.Icons.EDIT_OUTLINED, icon_size=18, icon_color=ft.Colors.BLUE_600,
                                       tooltip="改名", on_click=lambda _, i=idx: open_rename_dialog(i)),
-                        ft.IconButton(icon=ft.Icons.DELETE, icon_size=20, icon_color=UI_DANGER,
-                                      width=34, height=34, padding=0, style=ft.ButtonStyle(padding=0),
+                        ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color=ft.Colors.RED_600,
                                       tooltip="删除", on_click=lambda _, i=idx: confirm_remove_student(i)),
                         ft.ReorderableDragHandle(
-                            content=ft.Container(
-                                content=ft.Icon(ft.Icons.MENU_ROUNDED, color="#90a4ae", size=20),
-                                width=34, height=34, alignment=ft.Alignment.CENTER)),
+                            content=ft.Icon(ft.Icons.DRAG_HANDLE_ROUNDED, color=ft.Colors.GREY_500, size=22)),
                     ],
-                    spacing=2,
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                padding=ft.Padding(14, 11, 10, 11),
-                margin=ft.Margin.only(bottom=8),
-                border_radius=12,
+                padding=ft.Padding.symmetric(horizontal=10, vertical=6),
+                border=ft.Border.all(1, ft.Colors.GREY_300),
+                border_radius=8,
                 bgcolor=ft.Colors.WHITE,
-                animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 key=str(entry.get("id") or f"new-{idx}-{entry['name']}"),
-            )
-            _row_rest_style(row)
-            rows.append(row)
+            ))
         manage_list.controls = rows
         try:
             page.update()
@@ -3582,11 +3403,9 @@ def main(page: ft.Page):
         elif files:
             show_snackbar("无法读取所选文件的路径", is_error=True)
 
-    # 1.5.2：「导入」只留文字（渲染图 .import-btn）
     import_icon_btn = ft.TextButton(
-        content=ft.Text("导入", size=14, weight=ft.FontWeight.W_700, color=UI_BLUE),
-        on_click=on_import_click,
-        style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=10, vertical=8)))
+        content=ft.Text("导入", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_800),
+        icon=ft.Icons.UPLOAD_FILE_ROUNDED, on_click=on_import_click)
 
     # ---- 移到其他班 + 串课处理 ----
     def open_shared_slots_dialog(cid_a, cid_b, slots):
@@ -3695,8 +3514,7 @@ def main(page: ft.Page):
             actions_alignment=ft.MainAxisAlignment.END))
 
     # ---- 班级列表（切换 / 新建 / 重命名 / 删除） ----
-    class_name_text = ft.Text(get_class_name(), size=14, weight=ft.FontWeight.W_700, color=UI_BLUE,
-                              no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS)
+    class_name_text = ft.Text(get_class_name(), size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_800)
 
     def refresh_all():
         load_students_order()
@@ -3821,100 +3639,79 @@ def main(page: ft.Page):
     # 名单顶栏：左汉堡 | 中班级胶囊居中偏长 | 右导入
     class_chip = ft.Container(
         content=ft.Row([
-            ft.Icon(ft.Icons.SCHOOL_ROUNDED, color=UI_BLUE, size=16),
-            ft.Container(content=class_name_text, expand=False),
-            ft.Icon(ft.Icons.ARROW_DROP_DOWN_ROUNDED, color=UI_BLUE, size=18, opacity=0.7),
-        ], spacing=6, alignment=ft.MainAxisAlignment.CENTER, tight=True,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ft.Icon(ft.Icons.SCHOOL_ROUNDED, color=ft.Colors.BLUE_800, size=18),
+            class_name_text,
+            ft.Icon(ft.Icons.ARROW_DROP_DOWN_ROUNDED, color=ft.Colors.BLUE_800, size=20),
+        ], spacing=4, alignment=ft.MainAxisAlignment.CENTER),
         on_click=open_class_list,
-        ink=True,
-        bgcolor=UI_BLUE_SOFT,
-        border_radius=18,
-        padding=ft.Padding.symmetric(horizontal=18, vertical=8),
+        bgcolor=ft.Colors.BLUE_50,
+        border=ft.Border.all(1, ft.Colors.BLUE_100),
+        border_radius=20,
+        padding=ft.Padding.symmetric(horizontal=16, vertical=8),
         alignment=ft.Alignment.CENTER,
     )
 
     roster_menu_update_dot = _make_corner_update_dot()
     roster_menu_btn = ft.Stack(
-        [top_icon_btn(ft.Icons.MENU_ROUNDED, "设置", open_drawer), roster_menu_update_dot],
-        width=36, height=36,
+        [
+            ft.IconButton(
+                icon=ft.Icons.MENU_ROUNDED, icon_color=ft.Colors.BLUE_800, icon_size=24,
+                tooltip="设置", on_click=open_drawer, width=42, height=42),
+            roster_menu_update_dot,
+        ],
+        width=42, height=42,
     )
 
-    # 名单顶栏：左汉堡 | 班级胶囊绝对居中（宽） | 右「导入」文字
-    roster_top_bar = make_top_bar(roster_menu_btn, class_chip, [import_icon_btn], mid_inset=54)
+    roster_top_bar = ft.Row(
+        [
+            roster_menu_btn,
+            ft.Container(content=class_chip, expand=True, alignment=ft.Alignment.CENTER),
+            import_icon_btn,
+        ],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
 
     # FAB / SpeedDial
-    # 1.5.2 FAB 速拨（渲染图 04）：左白色标签 + 右圆形小按钮，弹出动画；主按钮 ＋ 旋转 45° 成 ×
-    _dial_anim = ft.Animation(180, ft.AnimationCurve.EASE_OUT)
-
-    def _apply_fab_state(open_):
-        fab_expanded["v"] = open_
-        for k, item in enumerate(fab_dial_items):
-            item.opacity = 1 if open_ else 0
-            item.scale = 1 if open_ else 0.85
-            item.offset = ft.Offset(0, 0) if open_ else ft.Offset(0, 0.35 + 0.15 * k)
-            item.ignore_interactions = not open_
-        fab_icon.rotate = ft.Rotate(angle=(math.pi / 4) if open_ else 0)
-
     def collapse_fab():
-        _apply_fab_state(False)
+        fab_expanded["v"] = False
+        fab_actions.visible = False
+        fab_main.icon = ft.Icons.ADD_ROUNDED
         try:
             fab_stack.update()
         except Exception:
             pass
 
     def toggle_fab(e=None):
-        _apply_fab_state(not fab_expanded["v"])
+        fab_expanded["v"] = not fab_expanded["v"]
+        fab_actions.visible = fab_expanded["v"]
+        fab_main.icon = ft.Icons.CLOSE_ROUNDED if fab_expanded["v"] else ft.Icons.ADD_ROUNDED
         fab_stack.update()
 
-    def make_dial_item(label, icon, icon_color, on_click):
-        def _click(e):
-            on_click(e)
-        return ft.Container(
-            content=ft.Row(
-                [
-                    ft.Container(
-                        content=ft.Text(label, size=13, weight=ft.FontWeight.W_600, color=UI_INK),
-                        bgcolor=ft.Colors.WHITE, border_radius=8,
-                        padding=ft.Padding.symmetric(horizontal=10, vertical=6),
-                        shadow=ft.BoxShadow(blur_radius=8, offset=ft.Offset(0, 2), color="#1f000000"),
-                        on_click=_click),
-                    ft.Container(
-                        content=ft.Icon(icon, color=icon_color, size=22),
-                        width=44, height=44, border_radius=22, bgcolor=ft.Colors.WHITE,
-                        border=ft.Border.all(1, UI_LINE), alignment=ft.Alignment.CENTER,
-                        shadow=ft.BoxShadow(blur_radius=8, offset=ft.Offset(0, 2), color="#1f000000"),
-                        on_click=_click, ink=True),
-                ],
-                spacing=8, tight=True, alignment=ft.MainAxisAlignment.END,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            opacity=0, scale=0.85, offset=ft.Offset(0, 0.35), ignore_interactions=True,
-            animate_opacity=_dial_anim, animate_scale=_dial_anim, animate_offset=_dial_anim,
-        )
-
-    fab_move_btn = make_dial_item("移到其他班", ft.Icons.OPEN_WITH_ROUNDED, "#6a1b9a", open_move_dialog)
-    fab_add_btn = make_dial_item("添加同学", ft.Icons.PERSON_ADD_ALT_1_ROUNDED, UI_BLUE, open_add_student_dialog)
-    fab_dial_items = [fab_add_btn, fab_move_btn]   # 由近到远（动画错开）
+    fab_add_btn = ft.FloatingActionButton(
+        content="添加同学", icon=ft.Icons.PERSON_ADD_ALT_1_ROUNDED, mini=True,
+        bgcolor=ft.Colors.BLUE_600, foreground_color=ft.Colors.WHITE,
+        on_click=open_add_student_dialog)
+    fab_move_btn = ft.FloatingActionButton(
+        content="移到其他班", icon=ft.Icons.SWAP_HORIZ_ROUNDED, mini=True,
+        bgcolor=ft.Colors.BLUE_100, foreground_color=ft.Colors.BLUE_800,
+        on_click=open_move_dialog)
     fab_actions = ft.Column(
-        [fab_move_btn, fab_add_btn], spacing=10, tight=True,
+        [fab_move_btn, fab_add_btn], spacing=10, tight=True, visible=False,
         horizontal_alignment=ft.CrossAxisAlignment.END)
-    fab_icon = ft.Icon(ft.Icons.ADD_ROUNDED, color=ft.Colors.WHITE, size=30,
-                       rotate=ft.Rotate(angle=0), animate_rotation=_dial_anim)
-    fab_main = ft.Container(
-        content=fab_icon, width=56, height=56, border_radius=28, bgcolor=UI_BLUE,
-        alignment=ft.Alignment.CENTER, on_click=toggle_fab, ink=True, tooltip="添加 / 移动",
-        shadow=ft.BoxShadow(blur_radius=16, offset=ft.Offset(0, 6), color="#661565c0"))
+    fab_main = ft.FloatingActionButton(
+        icon=ft.Icons.ADD_ROUNDED, bgcolor=ft.Colors.BLUE_700, foreground_color=ft.Colors.WHITE,
+        on_click=toggle_fab)
     fab_stack = ft.Column(
         [fab_actions, fab_main], spacing=10, tight=True,
         horizontal_alignment=ft.CrossAxisAlignment.END)
-    fab_holder = ft.Container(content=fab_stack, right=18, bottom=90)
 
     roster_manage_view = ft.Stack(
         [
             ft.Column(
-                [ft.Container(height=UI_TOP_INSET), roster_top_bar, manage_list],
-                expand=True, spacing=0),
-            fab_holder,
+                [roster_top_bar, ft.Divider(color=ft.Colors.GREY_300, height=5), manage_list],
+                expand=True, spacing=10),
+            ft.Container(content=fab_stack, right=8, bottom=12, alignment=ft.Alignment.BOTTOM_RIGHT),
         ],
         expand=True,
     )
@@ -3948,9 +3745,8 @@ def main(page: ft.Page):
     roll_call_view = ft.Stack(
         [
             ft.Column(
-                [ft.Container(height=UI_TOP_INSET - 8), roll_swipe_header,
-                 ft.Container(content=name_scroll_area, expand=True, padding=ft.Padding(12, 0, 12, 0))],
-                expand=True, spacing=8,
+                [roll_swipe_header, name_scroll_area],
+                expand=True, spacing=10,
             ),
             left_edge,
         ],
@@ -3959,35 +3755,29 @@ def main(page: ft.Page):
 
     # ----------------- 8. 侧边抽屉（方案 D，原关于页） -----------------
 
-    DRAWER_INK = "#0f172a"
-    DRAWER_SUB = "#94a3b8"
-    DRAWER_HAIR = "#f1f5f9"
-
-    def make_drawer_tile(icon, title, subtitle="", on_click=None, badge=None, last=False):
-        """渲染图 02D：36px 浅蓝图标块 + 标题/副标题 + 细箭头；行间 1px 发丝线（末行无）。"""
-        title_controls = [ft.Text(title, size=14.5, weight=ft.FontWeight.W_600, color=DRAWER_INK)]
+    def make_drawer_tile(icon, title, subtitle="", on_click=None, badge=None):
+        title_controls = [ft.Text(title, size=15, weight=ft.FontWeight.W_600, color=ft.Colors.GREY_900)]
         if badge is not None:
             title_controls.append(badge)
         return ft.Container(
             content=ft.Row(
                 [
                     ft.Container(
-                        content=ft.Icon(icon, color=UI_BLUE, size=18),
-                        width=36, height=36, bgcolor="#eff6ff", border_radius=10,
+                        content=ft.Icon(icon, color=ft.Colors.BLUE_700, size=22),
+                        width=40, height=40, bgcolor=ft.Colors.BLUE_50, border_radius=10,
                         alignment=ft.Alignment.CENTER),
                     ft.Column(
                         [
                             ft.Row(title_controls, spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                            ft.Text(subtitle, size=11.5, color=DRAWER_SUB, weight=ft.FontWeight.W_500)
-                            if subtitle else ft.Container(height=0),
+                            ft.Text(subtitle, size=11, color=ft.Colors.GREY_500) if subtitle else ft.Container(height=0),
                         ],
-                        spacing=2, tight=True, expand=True),
-                    ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color="#cbd5e1", size=20),
+                        spacing=1, tight=True, expand=True),
+                    ft.Icon(ft.Icons.CHEVRON_RIGHT_ROUNDED, color=ft.Colors.GREY_400, size=20),
                 ],
                 spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.Padding.symmetric(horizontal=12, vertical=13),
-            border=None if last else ft.Border.only(bottom=ft.BorderSide(1, DRAWER_HAIR)),
+            padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+            border_radius=12,
             on_click=on_click if on_click else lambda _: show_snackbar("该功能已预留，正在开发中..."),
             ink=True,
         )
@@ -4185,7 +3975,7 @@ def main(page: ft.Page):
 
     def set_update_tile_status(checking):
         update_tile_subtitle.value = UPDATE_CHECKING_TEXT if checking else f"当前版本 v{APP_VERSION}"
-        update_tile_subtitle.color = UI_BLUE if checking else DRAWER_SUB
+        update_tile_subtitle.color = ft.Colors.BLUE_700 if checking else ft.Colors.GREY_500
         try:
             update_tile_subtitle.update()
         except Exception:
@@ -4283,86 +4073,65 @@ def main(page: ft.Page):
     drawer_header = ft.Container(
         content=ft.Row([
             ft.Container(
-                content=ft.Icon(ft.Icons.LAYERS_ROUNDED, size=22, color=UI_BLUE),
-                width=40, height=40, bgcolor=UI_BLUE_SOFT, border_radius=12,
+                content=ft.Icon(ft.Icons.CHECKLIST_ROUNDED, size=28, color=ft.Colors.BLUE_800),
+                width=48, height=48, bgcolor=ft.Colors.BLUE_50, border_radius=12,
                 alignment=ft.Alignment.CENTER),
             ft.Column([
-                ft.Text("点名助手", size=16, weight=ft.FontWeight.W_700, color=DRAWER_INK),
-                ft.Text("学委量化管理提效神器", size=11.5, color=DRAWER_SUB, weight=ft.FontWeight.W_500),
-            ], spacing=3, tight=True),
-        ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        padding=ft.Padding(20, 52, 20, 18),
+                ft.Text("点名助手", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900),
+                ft.Text("设置与关于", size=12, color=ft.Colors.GREY_600),
+            ], spacing=2, tight=True),
+        ], spacing=12),
+        padding=ft.Padding.only(left=16, right=16, top=20, bottom=12),
     )
 
     drawer_version = ft.Container(
         content=ft.Column([
-            ft.Text(f"v{APP_VERSION} (build {APP_BUILD})", size=12, color="#64748b",
-                    weight=ft.FontWeight.W_600),
-            ft.Text("© 2026 HMUDQ-CS", size=10.5, color=DRAWER_SUB),
-        ], spacing=2, tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-        padding=ft.Padding(20, 14, 20, 22),
-        border=ft.Border.only(top=ft.BorderSide(1, DRAWER_HAIR)),
-        alignment=ft.Alignment.CENTER,
+            ft.Text(f"v{APP_VERSION} (build {APP_BUILD})", size=12, color=ft.Colors.GREY_600,
+                    weight=ft.FontWeight.W_500),
+            ft.Text("学委量化管理提效神器", size=11, color=ft.Colors.GREY_500),
+        ], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.START),
+        padding=ft.Padding.only(left=18, right=18, top=8, bottom=24),
     )
 
-    drawer_list = ft.Container(
-        content=ft.Column(
-            [
-                update_tile,
-                make_drawer_tile(ft.Icons.BACKUP_ROUNDED, "数据备份与恢复",
-                                 "备份 · 恢复 · 分享", on_click=open_backup_dialog),
-                make_drawer_tile(ft.Icons.BUG_REPORT_OUTLINED, "导出运行日志",
-                                 "反馈 Bug 时附上", on_click=show_logs_dialog),
-                make_drawer_tile(ft.Icons.FEEDBACK_OUTLINED, "问题反馈",
-                                 "建议与故障报告", on_click=open_feedback_dialog),
-                make_drawer_tile(ft.Icons.SHARE_OUTLINED, "分享应用",
-                                 "一键分享安装包", on_click=share_app_apk),
-                make_drawer_tile(ft.Icons.CODE_ROUNDED, "访问项目源码地址",
-                                 "GitHub 开源仓库", on_click=open_source_repo, last=True),
-            ],
-            spacing=0, scroll=ft.ScrollMode.AUTO,
-        ),
-        padding=ft.Padding(8, 4, 8, 8),
-        expand=True,
-    )
-
-    # 贴左、只右侧圆角：Flutter 不允许「非等宽边框 + 圆角」，故用 Border.all 并把面板向左推 1px，
-    # 左边线落到屏幕外，视觉上只剩右侧发丝线 + 右上/右下 16 圆角。
     drawer_panel = ft.Container(
         content=ft.Column(
             [
                 drawer_header,
-                drawer_list,
+                ft.Divider(height=1, color=ft.Colors.GREY_200),
+                update_tile,
+                make_drawer_tile(ft.Icons.BACKUP_ROUNDED, "数据备份与恢复",
+                                 "自动备份 / 立即备份 / 恢复 / 从文件恢复", on_click=open_backup_dialog),
+                make_drawer_tile(ft.Icons.BUG_REPORT_OUTLINED, "导出运行日志",
+                                 "查看并复制运行日志用于反馈", on_click=show_logs_dialog),
+                make_drawer_tile(ft.Icons.FEEDBACK_OUTLINED, "问题反馈",
+                                 "向开发团队反馈 Bug 或建议", on_click=open_feedback_dialog),
+                make_drawer_tile(ft.Icons.SHARE_OUTLINED, "分享应用",
+                                 "分享本机安装包；读不到则选 GitHub / 蓝奏云下载", on_click=share_app_apk),
+                make_drawer_tile(ft.Icons.CODE_ROUNDED, "访问项目源码",
+                                 "打开 GitHub 发布仓库", on_click=open_source_repo),
+                ft.Container(expand=True),
+                ft.Divider(height=1, color=ft.Colors.GREY_200),
                 drawer_version,
             ],
-            spacing=0, expand=True,
+            spacing=0, expand=True, scroll=ft.ScrollMode.AUTO,
         ),
-        width=_drawer_width() + 1,
+        width=300,
         bgcolor=ft.Colors.WHITE,
-        border=ft.Border.all(1, "#e5e7eb"),
-        border_radius=ft.BorderRadius.only(top_right=16, bottom_right=16),
-        shadow=ft.BoxShadow(blur_radius=36, color="#1f0f172a", offset=ft.Offset(12, 0)),
-        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-        left=-1, top=0, bottom=0,
+        border=ft.Border.all(1, ft.Colors.GREY_200),
+        shadow=ft.BoxShadow(blur_radius=18, color=ft.Colors.BLACK26, offset=ft.Offset(2, 0)),
+        left=0, top=0, bottom=0,
         padding=0,
-        offset=ft.Offset(0, 0),
-        animate_offset=ft.Animation(220, ft.AnimationCurve.EASE_OUT_CUBIC),
     )
     drawer_scrim = ft.Container(
-        left=0, top=0, right=0, bottom=0,
-        bgcolor="#660f172a",
+        expand=True,
+        bgcolor=ft.Colors.with_opacity(0.45, ft.Colors.BLACK),
         on_click=close_drawer,
-        opacity=1,
-        animate_opacity=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
     )
     drawer_layer = ft.Stack(
         [drawer_scrim, drawer_panel],
         expand=True,
         visible=False,
-        left=0, top=0, right=0, bottom=0,
     )
-    drawer_state["panel"] = drawer_panel
-    drawer_state["scrim"] = drawer_scrim
     drawer_state["layer"] = drawer_layer
     page.drawer = None  # 不用系统 NavigationDrawer；点名页用自定义左缘手势，名单页仅汉堡
 
@@ -4388,8 +4157,8 @@ def main(page: ft.Page):
 
     pages = ft.PageView(
         controls=[
-            ft.Container(content=roll_call_view, expand=True),
-            ft.Container(content=roster_manage_view, expand=True),
+            ft.Container(content=roll_call_view, expand=True, padding=ft.Padding.only(bottom=72)),
+            ft.Container(content=roster_manage_view, expand=True, padding=ft.Padding.only(bottom=72)),
         ],
         selected_index=0,
         horizontal=True,
@@ -4413,42 +4182,33 @@ def main(page: ft.Page):
     def sync_nav_ui(idx):
         for i, item in enumerate(nav_items):
             active = (i == idx)
-            item["icon"].color = UI_BLUE if active else UI_MUTED
-            item["label"].color = UI_BLUE if active else UI_MUTED
-            item["label"].weight = ft.FontWeight.W_600
-            item["pill"].bgcolor = UI_BLUE_PILL if active else None
+            item["icon"].color = ft.Colors.BLUE_800 if active else ft.Colors.GREY_500
+            item["label"].color = ft.Colors.BLUE_800 if active else ft.Colors.GREY_500
+            item["label"].weight = ft.FontWeight.BOLD if active else ft.FontWeight.NORMAL
 
     def make_nav_item(icon_data, label, idx):
-        ic = ft.Icon(icon_data, color=UI_MUTED, size=22)
-        lb = ft.Text(label, size=11, color=UI_MUTED, weight=ft.FontWeight.W_600)
-        pill = ft.Container(
+        ic = ft.Icon(icon_data, color=ft.Colors.GREY_500, size=24)
+        lb = ft.Text(label, size=11, color=ft.Colors.GREY_500)
+        box = ft.Container(
             content=ft.Column([ic, lb], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.CENTER, tight=True),
-            width=96, padding=ft.Padding.symmetric(horizontal=8, vertical=8), border_radius=18,
-            on_click=lambda _, i=idx: go_tab(i), ink=True,
-            animate=ft.Animation(160, ft.AnimationCurve.EASE_OUT))
-        box = ft.Container(content=pill, alignment=ft.Alignment.CENTER)
-        return {"icon": ic, "label": lb, "pill": pill, "box": box}
+            expand=True, alignment=ft.Alignment.CENTER, padding=ft.Padding.symmetric(vertical=8),
+            on_click=lambda _, i=idx: go_tab(i), ink=True)
+        return {"icon": ic, "label": lb, "box": box}
 
     nav_items = [
-        make_nav_item(ft.Icons.FORMAT_LIST_BULLETED_ROUNDED, "上课点名", 0),
+        make_nav_item(ft.Icons.CHECKLIST_ROUNDED, "上课点名", 0),
         make_nav_item(ft.Icons.PEOPLE_ROUNDED, "名单管理", 1),
     ]
     sync_nav_ui(0)
 
-    # 1.5.2 悬浮毛玻璃底栏（渲染图 .nav）：左右 12、底 10、高 68、圆角 22
     frost_nav = ft.Container(
-        content=ft.Row([it["box"] for it in nav_items], alignment=ft.MainAxisAlignment.SPACE_EVENLY,
-                       vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        bgcolor=ft.Colors.with_opacity(0.82, ft.Colors.WHITE),
-        blur=ft.Blur(20, 20),
-        border=ft.Border.all(1, ft.Colors.with_opacity(0.7, ft.Colors.WHITE)),
-        border_radius=22,
-        shadow=ft.BoxShadow(blur_radius=20, offset=ft.Offset(0, 6), color="#0a000000"),
-        height=68,
-        bottom=10, left=12, right=12,
+        content=ft.Row([it["box"] for it in nav_items], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
+        bgcolor=ft.Colors.with_opacity(0.72, ft.Colors.WHITE),
+        blur=ft.Blur(18, 18),
+        border=ft.Border.only(top=ft.BorderSide(1, ft.Colors.with_opacity(0.35, ft.Colors.GREY_400))),
+        padding=ft.Padding.only(bottom=6),
+        bottom=0, left=0, right=0,
     )
-    kb_refs["frost_nav"] = frost_nav
-    kb_refs["fab_holder"] = fab_holder
 
     # 点名页人名区底部留白，滚到底时名字能完整露在毛玻璃上方
     roster_column.spacing = 8
@@ -4462,7 +4222,7 @@ def main(page: ft.Page):
     def rebuild_roster_ui_with_pad():
         _orig_rebuild()
         if STUDENTS_ORDER:
-            roster_column.controls.append(ft.Container(height=96))
+            roster_column.controls.append(ft.Container(height=72))
 
     # 覆盖同名函数供后续调用
     rebuild_roster_ui = rebuild_roster_ui_with_pad

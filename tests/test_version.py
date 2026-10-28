@@ -13,7 +13,7 @@ CHANGELOG = open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8").read()
 
 class Version(unittest.TestCase):
     def test_versions_agree(self):
-        self.assertEqual(app.APP_VERSION, "1.5.0"); self.assertEqual(app.APP_BUILD, 107)
+        self.assertEqual(app.APP_VERSION, "1.5.1"); self.assertEqual(app.APP_BUILD, 109)
         self.assertEqual(CFG["project"]["version"], app.APP_VERSION)
         self.assertEqual(CFG["tool"]["flet"]["build_number"], app.APP_BUILD)
         first = re.search(r"^## v(\S+)（[^，]+，build-number (\d+)）", CHANGELOG, re.M)

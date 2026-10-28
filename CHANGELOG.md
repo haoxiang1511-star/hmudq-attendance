@@ -3,7 +3,7 @@
 版本规则：小修复改末位（1.2.x）；较大更新改中位（1.x.0）；大重构/换代改首位（2.0.0）。
 打包固定：包名 com.flet.app_build，签名为原 debug.keystore（androiddebugkey），build-number 只增不减。
 
-## v1.5.1 (build 109)
+## v1.5.1（2026-10-28，build-number 109）
 
 - 国内直链优先：检查更新 / 分享退路第一按钮改为 Gitee，其次 GitHub，再次蓝奏云
 - 侧栏「访问项目源码」指向公开源码仓
