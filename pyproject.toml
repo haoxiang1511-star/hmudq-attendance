@@ -1,0 +1,24 @@
+[project]
+name = "hmudq-attendance"
+version = "1.5.1"
+description = "课堂点名 / 考勤小工具（Flet）"
+requires-python = ">=3.10"
+dependencies = ["flet==0.85.3", "openpyxl>=3.0.0", "pypinyin>=0.50.0"]
+
+[tool.flet]
+product = "点名助手"
+org = "com.flet"
+bundle_id = "com.flet.app_build"
+company = "HMUDQ"
+# build-number 只增不减（v1.3.1 = 102，v1.4.0 = 104，v1.4.1 = 105，v1.4.2 = 106，v1.5.0 = 107，v1.5.1 = 109）
+build_number = 109
+
+[tool.flet.app]
+path = "."
+# 打包时排除（serious_python 按「相对路径完全相等」匹配，不支持通配符；打包前跑 python tools/check_apk.py）
+exclude = [".git", ".gitignore", "tests", "tools", "build", "__pycache__", "backups", "rescue_export",
+           "attendance.db", "attendance.db-wal", "attendance.db-shm"]
+
+# 「检查更新」要联网读版本信息文件：只声明 INTERNET（flet build 默认也会加，这里写明，不加其他权限）
+[tool.flet.android.permission]
+"android.permission.INTERNET" = true

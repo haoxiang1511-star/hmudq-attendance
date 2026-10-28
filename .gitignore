@@ -1,0 +1,29 @@
+# 构建产物
+build/
+dist/
+*.apk
+*.aab
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 用户数据（名单/考勤/备份）——绝不提交
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backups/
+rescue_export/
+userdata*/
+*.xlsx
+*.xls
+
+# 签名与密钥
+*.keystore
+*.jks
+keys/
+key.properties
+.env
+.env.*

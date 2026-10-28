@@ -1,0 +1,13 @@
+{
+  "version": "1.5.1",
+  "build": 109,
+  "notes": [
+    "国内直链优先走 Gitee；GitHub / 蓝奏云作备用。",
+    "界面改版：关于改为左侧抽屉，底部只留点名和名单两页",
+    "点名与名单可左右滑动；名单自动保存；有新版时小红点提示"
+  ],
+  "gitee_apk_url": "https://gitee.com/Hector1511/hmudq-attendance-release/releases/download/v1.5.1/hmudq-attendance.apk",
+  "github_apk_url": "https://github.com/haoxiang1511-star/hmudq-attendance-release/releases/latest/download/hmudq-attendance.apk",
+  "lanzou_url": "https://wwbwu.lanzoup.com/b01i5ycuyb",
+  "lanzou_code": "dt9b"
+}
