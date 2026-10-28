@@ -1,6 +1,6 @@
 [project]
 name = "hmudq-attendance"
-version = "1.5.1"
+version = "1.5.2"
 description = "课堂点名 / 考勤小工具（Flet）"
 requires-python = ">=3.10"
 dependencies = ["flet==0.85.3", "openpyxl>=3.0.0", "pypinyin>=0.50.0"]
@@ -10,8 +10,8 @@ product = "点名助手"
 org = "com.flet"
 bundle_id = "com.flet.app_build"
 company = "HMUDQ"
-# build-number 只增不减（v1.3.1 = 102，v1.4.0 = 104，v1.4.1 = 105，v1.4.2 = 106，v1.5.0 = 107，v1.5.1 = 109）
-build_number = 109
+# build-number 只增不减（v1.3.1 = 102，v1.4.0 = 104，v1.4.1 = 105，v1.4.2 = 106，v1.5.0 = 107，v1.5.1 = 109，v1.5.2 = 110）
+build_number = 110
 
 [tool.flet.app]
 path = "."
